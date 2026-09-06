@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role and subscription tier.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "tier": { "type": "string", "enum": ["free", "premium", "vip", "exclusive"] },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "timestamp" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["email", "role", "tier"]
+    },
+    "PaymentLink": {
+      "title": "Payment Link",
+      "description": "Escrow payment link.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "amount": { "type": "number" },
+        "clientWa": { "type": "string", "maxLength": 30 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "secretContent": { "type": "string", "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["pending", "paid"] },
+        "ngrokUrl": { "type": "string", "maxLength": 300 },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["title", "amount", "clientWa", "secretContent", "status", "authorId"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Global chat message.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 1000 },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string", "maxLength": 100 },
+        "authorTier": { "type": "string" },
+        "replyToId": { "type": "string" },
+        "replyToText": { "type": "string", "maxLength": 1000 },
+        "isEdited": { "type": "boolean" },
+        "isDeleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["text", "authorId", "authorName", "createdAt"]
+    },
+    "WebhookLog": {
+      "title": "Webhook Log",
+      "description": "Log of webhook triggers and payment status updates.",
+      "type": "object",
+      "properties": {
+        "linkId": { "type": "string" },
+        "status": { "type": "string" },
+        "payload": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "timestamp" }
+      },
+      "required": ["linkId", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "links/{linkId}": {
+      "schema": { "$ref": "#/entities/PaymentLink" },
+      "description": "Stores payment links created by users."
+    },
+    "global_chat/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Stores global chat messages."
+    },
+    "webhook_logs/{logId}": {
+      "schema": { "$ref": "#/entities/WebhookLog" },
+      "description": "Stores admin webhook execution logs."
+    }
+  }
+}

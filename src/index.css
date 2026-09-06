@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cyber-bg: #0b0c10;
+  --color-cyber-surface: #12141a;
+  --color-cyber-cyan: #00f3ff;
+  --color-cyber-pink: #ff003c;
+  --color-cyber-yellow: #fcee0a;
+  --color-cyber-gray: #1f2229;
+  
+  --font-cyber: 'Rajdhani', 'Orbitron', 'Space Grotesk', system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-cyber-bg text-gray-100 font-cyber selection:bg-cyber-pink selection:text-white;
+  }
+}
+
+.glitch-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.glitch-wrapper::before,
+.glitch-wrapper::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.glitch-wrapper::before {
+  left: 2px;
+  text-shadow: -2px 0 var(--color-cyber-pink);
+  clip: rect(24px, 550px, 90px, 0);
+  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+.glitch-wrapper::after {
+  left: -2px;
+  text-shadow: -2px 0 var(--color-cyber-cyan);
+  clip: rect(85px, 550px, 140px, 0);
+  animation: glitch-anim 2.5s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim {
+  0% { clip: rect(10px, 9999px, 83px, 0); }
+  20% { clip: rect(69px, 9999px, 12px, 0); }
+  40% { clip: rect(102px, 9999px, 3px, 0); }
+  60% { clip: rect(51px, 9999px, 98px, 0); }
+  80% { clip: rect(110px, 9999px, 45px, 0); }
+  100% { clip: rect(14px, 9999px, 130px, 0); }
+}
+
+@keyframes glitch-anim-2 {
+  0% { clip: rect(65px, 9999px, 100px, 0); }
+  20% { clip: rect(3px, 9999px, 10px, 0); }
+  40% { clip: rect(13px, 9999px, 54px, 0); }
+  60% { clip: rect(80px, 9999px, 122px, 0); }
+  80% { clip: rect(44px, 9999px, 2px, 0); }
+  100% { clip: rect(90px, 9999px, 40px, 0); }
+}
+
+.neon-border {
+  box-shadow: 0 0 10px var(--color-cyber-cyan), inset 0 0 10px var(--color-cyber-cyan);
+}
+.neon-text-pink {
+  text-shadow: 0 0 10px var(--color-cyber-pink);
+}
+.neon-text-cyan {
+  text-shadow: 0 0 10px var(--color-cyber-cyan);
+}
+.neon-text-yellow {
+  text-shadow: 0 0 10px var(--color-cyber-yellow);
+}

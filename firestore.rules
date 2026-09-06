@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isOwner(userId) { return request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isAdmin() { 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- User Rules ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'tier', 'createdAt']) &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role in ['admin', 'member'] &&
+             data.tier in ['free', 'premium', 'vip', 'exclusive'] &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('lastSeen' in data) || data.lastSeen is timestamp) &&
+             data.createdAt == request.time;
+    }
+    
+    function isValidUserUpdate(data) {
+      return data.email is string && data.email.size() <= 100 &&
+             data.role in ['admin', 'member'] &&
+             data.tier in ['free', 'premium', 'vip', 'exclusive'] &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('lastSeen' in data) || data.lastSeen is timestamp) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100));
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // Allow creation: Must enforce default role='member' and tier='free' unless admin
+      allow create: if isSignedIn() && isValidId(userId) && isOwner(userId) && isValidUser(incoming()) && 
+                    (incoming().role == 'member' || request.auth.token.email == 'RasyidAjha1140@gmail.com') &&
+                    (incoming().tier == 'free' || request.auth.token.email == 'RasyidAjha1140@gmail.com');
+      
+      allow update: if isSignedIn() && isValidId(userId) && isValidUserUpdate(incoming()) && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'isOnline', 'lastSeen'])) ||
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'tier', 'isOnline', 'lastSeen']))
+      );
+    }
+
+    // --- Links Rules ---
+    function isValidLink(data) {
+      return data.keys().hasAll(['title', 'amount', 'clientWa', 'secretContent', 'status', 'authorId', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.amount is number &&
+             data.clientWa is string && data.clientWa.size() <= 30 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             data.secretContent is string && data.secretContent.size() <= 5000 &&
+             data.status in ['pending', 'paid'] &&
+             (!('ngrokUrl' in data) || (data.ngrokUrl is string && data.ngrokUrl.size() <= 300)) &&
+             data.authorId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    function isValidLinkUpdate(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.amount is number &&
+             data.clientWa is string && data.clientWa.size() <= 30 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             data.secretContent is string && data.secretContent.size() <= 5000 &&
+             data.status in ['pending', 'paid'] &&
+             (!('ngrokUrl' in data) || (data.ngrokUrl is string && data.ngrokUrl.size() <= 300)) &&
+             data.authorId == existing().authorId;
+    }
+
+    match /links/{linkId} {
+      allow read: if true; // Public checkout needs to see it
+      allow create: if isSignedIn() && isValidId(linkId) && isValidLink(incoming());
+      allow update: if isSignedIn() && isValidId(linkId) && isValidLinkUpdate(incoming()) && (
+        (incoming().authorId == request.auth.uid) || isAdmin()
+      );
+      allow delete: if isSignedIn() && isValidId(linkId) && (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // --- Chat Rules ---
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['text', 'authorId', 'authorName', 'authorTier', 'createdAt']) &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.authorId == request.auth.uid &&
+             data.authorName is string && data.authorName.size() <= 100 &&
+             data.authorTier is string && data.authorTier.size() <= 50 &&
+             (!('replyToId' in data) || (data.replyToId is string)) &&
+             (!('replyToText' in data) || (data.replyToText is string && data.replyToText.size() <= 1000)) &&
+             (!('isEdited' in data) || (data.isEdited is bool)) &&
+             (!('isDeleted' in data) || (data.isDeleted is bool)) &&
+             data.createdAt == request.time;
+    }
+    
+    function isValidChatUpdate(data) {
+      return data.text is string && data.text.size() <= 1000 &&
+             (!('isEdited' in data) || data.isEdited is bool) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             data.authorId == existing().authorId;
+    }
+
+    match /global_chat/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(messageId) && isValidChatMessage(incoming());
+      allow update: if isSignedIn() && isValidId(messageId) && (existing().authorId == request.auth.uid || isAdmin()) && isValidChatUpdate(incoming());
+      allow delete: if isSignedIn() && isValidId(messageId) && (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // --- Webhook Logs (Admin Only) ---
+    function isValidWebhookLog(data) {
+      return data.keys().hasAll(['linkId', 'status', 'createdAt']) &&
+             data.linkId is string && 
+             data.status is string &&
+             (!('payload' in data) || data.payload is string) &&
+             (!('message' in data) || data.message is string) &&
+             data.createdAt == request.time;
+    }
+
+    match /webhook_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId) && isValidWebhookLog(incoming());
+      allow update, delete: if isAdmin();
+    }
+  }
+}
